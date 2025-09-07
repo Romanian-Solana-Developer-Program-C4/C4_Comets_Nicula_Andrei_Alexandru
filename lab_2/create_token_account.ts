@@ -9,7 +9,9 @@ import {
     getExplorerLink
 } from "@solana-developers/helpers";
 import "dotenv/config";
-import {getOrCreateAssociatedTokenAccount} from "@solana/spl-token";
+import {
+    getOrCreateAssociatedTokenAccount
+} from "@solana/spl-token";
 
 
 async function main(){
