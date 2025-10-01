@@ -8,15 +8,15 @@ const web3 = anchor.web3;
 describe("Favorites", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
-  const program = anchor.workspace.Favorites as Program<Favorites>;
   const user = (provider.wallet as anchor.Wallet).payer;
+  const program = anchor.workspace.Favorites as Program<Favorites>;
 
   it("Saves a user's favorites to the blockchain", async () => {
-    const favoriteNumber = new anchor.BN(-5000);
-    const favoriteColor = "blue";
-    const favoriteFoods = ["burger", "pizza", "shaorma"];
+    const favoriteNumber = new anchor.BN(23);
+    const favoriteColor = "purple";
+    const favoriteHobbies = ["skiing", "skydiving", "biking"];
     await program.methods
-        .setFavorites(favoriteNumber, favoriteColor, favoriteFoods)
+        .setFavorites(favoriteNumber, favoriteColor, favoriteHobbies)
         .signers([user])
         .rpc();
     const favoritesPdaAndBump = web3.PublicKey.findProgramAddressSync(
@@ -27,18 +27,20 @@ describe("Favorites", () => {
     const dataFromPda = await program.account.favorites.fetch(favoritesPda);
     assert.equal(dataFromPda.color, favoriteColor);
     assert.equal(dataFromPda.number.toString(), favoriteNumber.toString());
-    assert.deepEqual(dataFromPda.foods, favoriteFoods);
+    assert.deepEqual(dataFromPda.hobbies, favoriteHobbies);
   });
+
   it("Doesn't let people write to favorites for other users", async () => {
     const someRandomGuy = anchor.web3.Keypair.generate();
     try {
       await program.methods
-          .setFavorites(new anchor.BN(420), "red", ["pasta", "salad"])
+          .setFavorites(new anchor.BN(420), "red", ["being a dork"])
           .signers([someRandomGuy])
           .rpc();
     } catch (error) {
       const errorMessage = (error as Error).message;
-      assert.isTrue(errorMessage.includes("Unknown Signer!"));
+      assert.isTrue(errorMessage.includes("unknown signer"));
     }
   });
+
 });
