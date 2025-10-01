@@ -1,16 +1,44 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { Favorites } from "../target/types/favorites";
+import { assert } from "chai";
 
-describe("favorites", () => {
-  // Configure the client to use the local cluster.
-  anchor.setProvider(anchor.AnchorProvider.env());
+const web3 = anchor.web3;
 
-  const program = anchor.workspace.favorites as Program<Favorites>;
+describe("Favorites", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+  const program = anchor.workspace.Favorites as Program<Favorites>;
+  const user = (provider.wallet as anchor.Wallet).payer;
 
-  it("Is initialized!", async () => {
-    // Add your test here.
-    const tx = await program.methods.initialize().rpc();
-    console.log("Your transaction signature", tx);
+  it("Saves a user's favorites to the blockchain", async () => {
+    const favoriteNumber = new anchor.BN(-5000);
+    const favoriteColor = "blue";
+    const favoriteFoods = ["burger", "pizza", "shaorma"];
+    await program.methods
+        .setFavorites(favoriteNumber, favoriteColor, favoriteFoods)
+        .signers([user])
+        .rpc();
+    const favoritesPdaAndBump = web3.PublicKey.findProgramAddressSync(
+        [Buffer.from("favorites"), user.publicKey.toBuffer()],
+        program.programId
+    );
+    const favoritesPda = favoritesPdaAndBump[0];
+    const dataFromPda = await program.account.favorites.fetch(favoritesPda);
+    assert.equal(dataFromPda.color, favoriteColor);
+    assert.equal(dataFromPda.number.toString(), favoriteNumber.toString());
+    assert.deepEqual(dataFromPda.foods, favoriteFoods);
+  });
+  it("Doesn't let people write to favorites for other users", async () => {
+    const someRandomGuy = anchor.web3.Keypair.generate();
+    try {
+      await program.methods
+          .setFavorites(new anchor.BN(420), "red", ["pasta", "salad"])
+          .signers([someRandomGuy])
+          .rpc();
+    } catch (error) {
+      const errorMessage = (error as Error).message;
+      assert.isTrue(errorMessage.includes("Unknown Signer!"));
+    }
   });
 });
